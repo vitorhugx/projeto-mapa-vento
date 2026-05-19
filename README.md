@@ -1,4 +1,4 @@
-# ProjetoMapVento — Visualização de Dados de Vento
+# ProjetoMapaVento — Visualização de Dados de Vento
 
 Projeto voltado ao **estudo e prototipação de visualizações de dados meteorológicos**, com foco em vento (velocidade e direção), utilizando dados de estações climáticas e interfaces interativas em HTML.
 
