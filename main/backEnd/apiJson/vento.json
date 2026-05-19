@@ -1,0 +1,138 @@
+{
+  "atualizado_em": "18/05/2026 15:20",
+  "estacoes": [
+    {
+      "estacao": "Santa Cruz do Sul - UNISC",
+      "lat": -29.697872556596224,
+      "lon": -52.43841655991483,
+      "dir_media": 285.4,
+      "vel_media": 0.83
+    },
+    {
+      "estacao": "Boqueirão do Leão - Prefeitura Municipal",
+      "lat": -29.303752603324643,
+      "lon": -52.432527799999995,
+      "dir_media": 33.7,
+      "vel_media": 0.21
+    },
+    {
+      "estacao": "Candelária ",
+      "lat": -29.667045816588985,
+      "lon": -52.788168984084706,
+      "dir_media": 250.3,
+      "vel_media": 1.77
+    },
+    {
+      "estacao": "General Câmara - Unidade de Saúde Passo da Taquara",
+      "lat": -29.781253371595614,
+      "lon": -51.9925833,
+      "dir_media": 73.84,
+      "vel_media": 0.18
+    },
+    {
+      "estacao": "Gramado Xavier",
+      "lat": -29.2620591,
+      "lon": -52.6409887,
+      "dir_media": 273.4,
+      "vel_media": 1.54
+    },
+    {
+      "estacao": "Herveiras",
+      "lat": -29.4690573,
+      "lon": -52.6116998,
+      "dir_media": 147.6,
+      "vel_media": 0.08
+    },
+    {
+      "estacao": "Marques de Souza",
+      "lat": -29.3256538,
+      "lon": -52.0950836,
+      "dir_media": 8.3,
+      "vel_media": 0.11
+    },
+    {
+      "estacao": "Rio Pardo - Expoagro",
+      "lat": -29.869516275622527,
+      "lon": -52.386466,
+      "dir_media": 95.35,
+      "vel_media": 0.38
+    },
+    {
+      "estacao": "Santa Clara - Parque de Eventos",
+      "lat": -29.46917011216516,
+      "lon": -52.11726793410548,
+      "dir_media": 10.6,
+      "vel_media": 0.06
+    },
+    {
+      "estacao": "Santa Cruz do Sul - Alto Paredão",
+      "lat": -29.4038733,
+      "lon": -52.4062951,
+      "dir_media": 77.55,
+      "vel_media": 0.23
+    },
+    {
+      "estacao": "Santa Cruz do Sul - Monte Alverne",
+      "lat": -29.5592377,
+      "lon": -52.3344922,
+      "dir_media": 28.8,
+      "vel_media": 0.13
+    },
+    {
+      "estacao": "Sinimbu",
+      "lat": -29.370453564572845,
+      "lon": -52.50863803861259,
+      "dir_media": 180.0,
+      "vel_media": 0.4
+    },
+    {
+      "estacao": "Vale do Sol",
+      "lat": -29.600548548963378,
+      "lon": -52.686975242675366,
+      "dir_media": 242.67,
+      "vel_media": 0.58
+    },
+    {
+      "estacao": "Vale do Sol - Rancho Canto das Montanhas",
+      "lat": -29.457835,
+      "lon": -52.779145,
+      "dir_media": 4.8,
+      "vel_media": 0.1
+    },
+    {
+      "estacao": "Vale Verde - Complexo Esportivo",
+      "lat": -29.790081020172025,
+      "lon": -52.18301885225654,
+      "dir_media": 207.95,
+      "vel_media": 1.22
+    },
+    {
+      "estacao": "Venâncio Aires - CTA",
+      "lat": -29.630742,
+      "lon": -52.1866,
+      "dir_media": 233.8,
+      "vel_media": 0.42
+    },
+    {
+      "estacao": "Venâncio Aires - Vila Deodoro",
+      "lat": -29.47419764584807,
+      "lon": -52.26655550592939,
+      "dir_media": 204.4,
+      "vel_media": 0.52
+    },
+    {
+      "estacao": "Vera Cruz - Alto Dona Josefa",
+      "lat": -29.6224533,
+      "lon": -52.5563,
+      "dir_media": 0.0,
+      "vel_media": 0.0
+    },
+    {
+      "estacao": "Vera Cruz - ETA",
+      "lat": -29.70628716721836,
+      "lon": -52.5091672036026,
+      "dir_media": 266.4,
+      "vel_media": 1.76
+    }
+  ]
+}

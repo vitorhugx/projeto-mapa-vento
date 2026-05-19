@@ -162,7 +162,7 @@ limpar_dados_tratados()
 with sync_playwright() as p:
 
     # False mostra o navegador / True roda em segundo plano (sem abrir janela)
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(headless=False)
     page = browser.new_page()
 
     page.goto(URL)

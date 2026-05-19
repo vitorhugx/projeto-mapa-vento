@@ -1,0 +1,1118 @@
+ <!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WindMap</title>
+
+  <!-- Biblioteca Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Fonte do Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Plugin de mapa de calor -->
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <style>
+    :root{
+      --bg: #f4f7fb;
+      /* paleta verde */
+      --primary-1: #1f8f3e; /* verde mais escuro */
+      --primary-2: #66c26a; /* verde mais claro */
+      --card: #ffffff;
+      --muted: #666;
+      --accent: #28a745; /* verde de destaque */
+    }
+
+    /* ===== Layout geral ===== */
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    header {
+      background: linear-gradient(90deg, var(--primary-1), var(--primary-2));
+      color: white;
+      padding: 18px 24px;
+      text-align: left;
+      box-shadow: 0 4px 18px rgba(7,60,40,0.12);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* logo pequena no cabeçalho */
+    .logo {
+      width: 64px;
+      height: 64px;
+      flex: 0 0 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(2,6,23,0.06) inset;
+    }
+    .logo svg { width: 44px; height: 44px; display:block }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: 0.4px;
+      font-weight: 600;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.95rem;
+      opacity: 0.95;
+      color: rgba(255,255,255,0.95);
+      font-weight: 300;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      gap: 8px; /* reduzir espaço entre mapa e painel */
+      align-items: flex-start;
+      padding: 12px 12px; /* menos espaço lateral */
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.08);
+      overflow: hidden;
+      border: none; /* remover borda para ficar colado ao painel */
+    }
+
+    /* Sobreposição de carregamento */
+    .loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.6);
+      z-index: 9999;
+      font-weight: 600;
+      color: var(--muted);
+      backdrop-filter: blur(3px);
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 4px solid rgba(0,0,0,0.08);
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    footer {
+      background: transparent;
+      color: rgba(0,0,0,0.25);
+      text-align: left;
+      padding: 2px 12px;
+      font-size: 0.7rem;
+      letter-spacing: 0.2px;
+    }
+
+    /* ===== Legenda ===== */
+    .legend {
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.92));
+      padding: 12px 14px;
+      line-height: 1.4em;
+      border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(2,60,24,0.12);
+      font-size: 13px;
+      font-family: Inter, sans-serif;
+      color: #0b2540;
+      min-width: 160px;
+    }
+
+    .legend i {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(2,6,23,0.06) inset;
+    }
+
+    .map-control {
+      background: rgba(255,255,255,0.95);
+      padding: 8px 10px;
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(2,60,24,0.12);
+      font-size: 13px;
+    }
+
+  /* ===== Botão Filtros no header ===== */
+  .header-filter-btn {
+    margin-left: auto;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: Inter, sans-serif;
+    transition: background 200ms ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .header-filter-btn:hover { background: rgba(255,255,255,0.25); }
+
+  /* ===== Backdrop invisível (só para fechar ao clicar fora) ===== */
+  .filter-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1999;
+  }
+  .filter-backdrop.open { display: block; }
+
+  /* ===== Painel de filtros (card flutuante) ===== */
+  .filter-panel {
+    position: fixed;
+    top: 78px;
+    right: 12px;
+    width: 280px;
+    max-height: calc(100vh - 100px);
+    background: #ffffff;
+    box-shadow: 0 8px 30px rgba(2,60,24,0.15);
+    border-radius: 12px;
+    z-index: 2000;
+    overflow-y: auto;
+    padding: 20px 16px;
+    font-family: Inter, sans-serif;
+    color: #083a20;
+    box-sizing: border-box;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: opacity 250ms ease, transform 250ms ease;
+  }
+  .filter-panel.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .filter-panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .filter-panel-header h3 { margin:0; font-size:15px; font-weight:700; color:#083a20; }
+  .filter-panel-header button { background:transparent; border:0; font-size:18px; cursor:pointer; color:#083a20; padding:4px 6px; border-radius:6px; line-height:1; }
+  .filter-panel-header button:hover { background:rgba(2,60,24,0.06); }
+
+  .filter-panel label { font-size:12px; color:#234; display:block; margin-bottom:4px; }
+  .filter-panel input[type=date] { width:100%; padding:6px; margin:4px 0 12px 0; box-sizing:border-box; border-radius:6px; border:1px solid #e6eef9; }
+  .filter-panel .actions { display:flex; gap:8px; margin-top:12px; }
+  .filter-panel .actions button { flex:1; padding:8px; border-radius:6px; border:0; cursor:pointer; font-size:13px; font-weight:600; }
+  .filter-panel input[type=search] { width:100%; padding:6px; margin:4px 0 10px 0; box-sizing:border-box; border-radius:6px; border:1px solid #e6eef9; }
+  .station-item { display:flex; align-items:center; gap:8px; padding:6px 4px; border-radius:6px; }
+  .station-item:hover { background:rgba(2,60,24,0.04); }
+  .station-item input { width:16px; height:16px; }
+  .btn-apply { background:var(--primary-1); color:white; }
+  .btn-clear { background:#f1f5f9; color:#083a20; }
+
+  /* ===== Estilo personalizado do checkbox (destaque verde) ===== */
+  input[type="checkbox"] {
+    accent-color: var(--primary-1); /* navegadores modernos: mudança direta de cor */
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+  }
+
+  /* fallback para navegadores antigos: estiliza o checkbox de forma mais direta */
+  input[type="checkbox"]:checked {
+    background-color: var(--primary-1);
+    border-color: var(--primary-1);
+  }
+
+  input[type="checkbox"]:focus {
+    outline: 2px solid var(--primary-2);
+    outline-offset: 2px;
+  }
+
+  /* ===== Status indicator (exibindo X de Y estações) ===== */
+  #statusIndicator {
+    background: linear-gradient(135deg, rgba(31, 143, 62, 0.95) 0%, rgba(102, 194, 106, 0.9) 100%);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(31, 143, 62, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 300ms ease;
+  }
+
+  #statusIndicator::before {
+    content: '●';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ===== Estilos de animação das partículas (partículas de vento) ===== */
+  @keyframes windParticle {
+    0% {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      opacity: 0.8;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--px), var(--py)) scale(0.3);
+    }
+  }
+
+  @keyframes particleGlow {
+    0% {
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 12px rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 16px rgba(255, 255, 255, 0.3);
+    }
+    100% {
+      box-shadow: 0 0 2px rgba(255, 255, 255, 0), 0 0 4px rgba(255, 255, 255, 0);
+    }
+  }
+
+  .wind-particle {
+    position: absolute;
+    pointer-events: none;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(220, 220, 220, 0.8) 100%);
+    animation: windParticle var(--duration) ease-out forwards, particleGlow var(--duration) ease-out forwards;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 12px rgba(255, 255, 255, 0.4);
+  }
+
+  /* ===== Estilo aprimorado do popup ===== */
+  .leaflet-popup-content-wrapper {
+    background: transparent !important;
+    box-shadow: 0 3px 12px rgba(31, 143, 62, 0.2) !important;
+    border-radius: 10px !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .leaflet-popup-content {
+    margin: 0 !important;
+    width: auto !important;
+  }
+
+  .leaflet-popup-tip {
+    background: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: 0 1px 3px rgba(31, 143, 62, 0.1) !important;
+  }
+
+  .leaflet-popup-close-button {
+    color: #1f8f3e !important;
+    font-weight: 700 !important;
+    font-size: 20px !important;
+    opacity: 0.6 !important;
+    right: 8px !important;
+    top: 8px !important;
+  }
+
+  .leaflet-popup-close-button:hover {
+    opacity: 1 !important;
+  }
+
+  /* ===== Garante que o painel de popup fique acima das partículas ===== */
+  /* Eleva o painel de popup logo acima de particlesLayer (650) */
+  .leaflet-pane.leaflet-popup-pane { z-index: 700 !important; }
+  .leaflet-pane.leaflet-shadow-pane { z-index: 660 !important; }
+
+  /* ==== Correção das linhas brancas entre tiles ==== */
+  .leaflet-container {
+  background: #e6e9ef; /* fundo neutro para mascarar pequenos gaps */
+  }
+
+  .leaflet-tile {
+  border: none !important;
+  box-shadow: none !important;
+  transform: translate3d(0, 0, 0);
+  image-rendering: optimizeSpeed;
+  background-color: transparent;
+  /* Ajuste mínimo de margem apenas em monitores Retina */
+  }
+
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .leaflet-tile {
+    margin: -0.25px !important; /* pequeno ajuste apenas em telas de alta densidade */
+  }
+  }
+
+    .leaflet-tile-container {
+    will-change: transform;
+    }
+
+  .leaflet-layer {
+  transform: translateZ(0);
+  }
+
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="logo" id="logoContainer" title="Mapa do Vento" aria-hidden="false">
+       <!-- o logo será carregado aqui automaticamente de assets/logo.svg ou assets/logo.png
+         Se nenhum arquivo externo for encontrado, será usado um fallback SVG inline pequeno. -->
+    </div>
+    <div>
+      <h1>WindMap</h1>
+      <p>Dados em tempo real das Estações Climáticas</p>
+    </div>
+    <button id="toggleFilters" class="header-filter-btn">Filtros ▶</button>
+  </header>
+
+  <main style="flex:1; position:relative;">
+    <div id="map-wrapper" style="width:100%; height:100%; position:relative;">
+      <div id="map" style="width:100%; height:100%;"></div>
+      <div id="statusIndicator" style="position:absolute; bottom:20px; left:20px; z-index:500;">
+        Exibindo 0 de 0 estações
+      </div>
+      <div id="loading" class="loading">
+        <div class="spinner" aria-hidden="true"></div>
+        <div>Carregando dados…</div>
+      </div>
+    </div>
+  </main>
+
+  <div id="filterBackdrop" class="filter-backdrop"></div>
+  <div class="filter-panel" id="filterPanel">
+    <div class="filter-panel-header">
+      <h3>Filtros</h3>
+      <button id="closeFilters" aria-label="Fechar filtros">✕</button>
+    </div>
+    <label for="stationSearch">Estação:</label>
+    <input id="stationSearch" type="search" placeholder="Pesquisar estação...">
+    <div id="stationList" style="max-height:300px; overflow:auto; border-radius:8px; padding:6px; border:1px solid rgba(10,20,40,0.04); background:linear-gradient(180deg,#fff,#fbfdff); margin-bottom:12px;"></div>
+    <label for="dateFrom">Data (de):</label>
+    <input id="dateFrom" type="date" disabled />
+    <label for="dateTo">Data (até):</label>
+    <input id="dateTo" type="date" disabled />
+    <div class="actions">
+      <button id="applyFilter" class="btn-apply">Aplicar</button>
+      <button id="clearFilter" class="btn-clear">Redefinir</button>
+    </div>
+  </div>
+
+  <footer>
+    Desenvolvido por Vitor Klafke — Protótipo V3.0
+  </footer>
+
+  <script>
+    // ===== Inicializa o mapa =====
+    // Tenta carregar um logo externo da pasta assets (assets/logo.svg ou assets/logo.png)
+    // Se não existir, injeta um pequeno SVG inline como fallback.
+    (function loadLogo(){
+      const container = document.getElementById('logoContainer');
+      if (!container) return;
+      const paths = ['assets/logo1.png'];
+      let tried = 0;
+      function tryNext(){
+        if (tried >= paths.length) {
+          // injeta SVG inline de fallback
+          container.innerHTML = `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+              <path d="M3 12c0-2.761 2.239-5 5-5h7.5a1 1 0 1 0 0-2H8c-3.866 0-7 3.134-7 7s3.134 7 7 7h11" fill="none" stroke="#fff" stroke-opacity="0.92" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 10.5a2.5 2.5 0 1 0 0 5" fill="none" stroke="#fff" stroke-opacity="0.92" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>`;
+          return;
+        }
+        const p = paths[tried++];
+        const img = new Image();
+        img.onload = function(){
+          img.alt = 'Logo';
+          img.style.width = '44px';
+          img.style.height = '44px';
+          img.style.display = 'block';
+          container.innerHTML = '';
+          container.appendChild(img);
+        };
+        img.onerror = function(){ tryNext(); };
+        img.src = p + '?v=' + Date.now(); // evita cache durante o desenvolvimento
+      }
+      tryNext();
+    })();
+
+    // Retorna o mesmo logo usado no cabeçalho em HTML (src da imagem se disponível, senão SVG alternativo)
+    function getHeaderLogoHTML(size = 28){
+      const container = document.getElementById('logoContainer');
+      const img = container ? container.querySelector('img') : null;
+      if (img && img.src) {
+        // Usa exatamente a mesma origem de imagem carregada no cabeçalho
+        return `<img src="${img.src}" alt="Logo" width="${size}" height="${size}" style="display:block;"/>`;
+      }
+      // Alternativa para um SVG inline semelhante à alternativa do cabeçalho
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+          <path d="M3 12c0-2.761 2.239-5 5-5h7.5a1 1 0 1 0 0-2H8c-3.866 0-7 3.134-7 7s3.134 7 7 7h11" fill="none" stroke="#1f8f3e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7 10.5a2.5 2.5 0 1 0 0 5" fill="none" stroke="#1f8f3e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+    }
+
+    const map = L.map("map").setView([-29.72, -52.45], 9);
+
+    // Camada de tiles: usa a configuração mais simples (igual ao indexV5) — ajuda a evitar emendas em alguns navegadores
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    // Controle de escala
+    L.control.scale({ metric: true, imperial: false }).addTo(map);
+
+    // ===== Função para converter direção (°) em texto =====
+    function direcaoTexto(graus) {
+      const dirs = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
+      const idx = Math.round(graus / 45) % 8;
+      return dirs[idx];
+    }
+
+    // ===== Unificação de categorias de intensidade =====
+    // Fonte única de verdade para faixas, nomes e cores.
+    // Ordem crescente por velocidade.
+    const WIND_CATEGORIES = [
+      { name: 'Fraco',    min: -Infinity, max: 2,       color: '#005cff' },
+      { name: 'Moderado', min: 2,         max: 4,       color: '#66cc00' },
+      { name: 'Forte',    min: 4,         max: 6,       color: '#ffcc00' },
+      { name: 'Extremo',  min: 6,         max: Infinity,color: '#ff3b00' }
+    ];
+
+    function findWindCategory(v){
+      return WIND_CATEGORIES.find(c => v >= c.min && v < c.max) || WIND_CATEGORIES[0];
+    }
+
+    // ===== Níveis de alerta CENAD/INMET (vento) =====
+    // Faixas convertidas de Km/h para m/s (÷ 3.6)
+    const ALERT_LEVELS = [
+      { name: 'Normal',           min: -Infinity, max: 11.1,    color: '#2e7d32', bg: '#f1f8f1', label: 'Sem alerta' },
+      { name: 'Perigo Potencial', min: 11.1,      max: 16.7,    color: '#f9a825', bg: '#fffde7', label: '40–60 Km/h' },
+      { name: 'Perigo',           min: 16.7,      max: 27.8,    color: '#e65100', bg: '#fff3e0', label: '61–99 Km/h' },
+      { name: 'Grande Perigo',    min: 27.8,      max: Infinity, color: '#b71c1c', bg: '#ffebee', label: '≥ 100 Km/h' }
+    ];
+
+    function findAlertLevel(v){
+      return ALERT_LEVELS.find(a => v >= a.min && v < a.max) || ALERT_LEVELS[0];
+    }
+
+    // Helpers de cor e raio usando categorias unificadas
+    function getColor(v) {
+      return findWindCategory(v).color;
+    }
+
+    function getRadius(v){
+      return Math.max(6, Math.min(12, 6 + v * 0.5));
+    }
+
+    // ===== Sistema de partículas =====
+    // Pequenos pontos animados que saem de cada estação na direção do vento.
+    // Cada estação tem um "loop" que cria uma nova partícula a cada 200ms.
+    // Quando um popup é aberto, todos os loops pausam e as partículas somem.
+    // Ao fechar o popup, os loops são reiniciados.
+    let particlesEnabled = true;
+    let particleIntervals = []; // rastreia intervalos para limpeza
+    
+    // Cria a camada de partículas - posicionada absolutamente sobre o mapa
+  const particlesLayer = document.createElement('div');
+  particlesLayer.id = 'particlesLayer';
+  // coloca abaixo do popup (700) e das dicas, mas acima dos blocos de mapa
+  particlesLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:650;';
+    
+    // Adiciona após o mapa estar pronto
+    setTimeout(() => {
+      const mapDiv = document.getElementById('map');
+      if (mapDiv) {
+        // adiciona dentro de #map para que os painéis do Leaflet (popup) possam ficar por cima
+        mapDiv.appendChild(particlesLayer);
+      }
+    }, 100);
+
+    function createWindParticle(lat, lon, dirGraus, velocity) {
+      if (!particlesEnabled) return;
+      
+      try {
+        // Garante que particlesLayer exista
+        if (!particlesLayer || !particlesLayer.parentNode) {
+          console.warn('Particles layer not ready');
+          return;
+        }
+        
+        const mapPoint = map.latLngToContainerPoint([lat, lon]);
+        if (!mapPoint || mapPoint.x === undefined || mapPoint.y === undefined) return;
+        
+        const particle = document.createElement('div');
+        particle.className = 'wind-particle';
+        const size = 2 + Math.random() * 3; // tamanho entre 2px e 5px
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+        
+        // Converte direção para radianos e calcula deslocamento da partícula
+        const radians = (dirGraus * Math.PI) / 180;
+        const distance = Math.max(15, Math.min(50, velocity * 2.5)); // distância reduzida para visual mais fluido
+        const baseDuration = Math.max(1.5, Math.min(3, 3 - velocity * 0.04));
+        const duration = baseDuration + (Math.random() - 0.5) * 0.6; // variação de ±0.3s
+
+        const px = Math.sin(radians) * distance;
+        const py = -Math.cos(radians) * distance;
+        
+        const spread = 10; // dispersão em pixels ao redor da estação
+        const offsetX = (Math.random() - 0.5) * spread * 2;
+        const offsetY = (Math.random() - 0.5) * spread * 2;
+        particle.style.left = (mapPoint.x + offsetX) + 'px';
+        particle.style.top = (mapPoint.y + offsetY) + 'px';
+        particle.style.setProperty('--px', px + 'px');
+        particle.style.setProperty('--py', py + 'px');
+        particle.style.setProperty('--duration', duration + 's');
+        
+        particlesLayer.appendChild(particle);
+        
+        // Remove a partícula após o fim da animação
+        setTimeout(() => {
+          if (particle && particle.parentNode) {
+            particle.remove();
+          }
+        }, duration * 1000);
+      } catch (e) {
+        console.error('Particle creation error:', e);
+      }
+    }
+
+    function startParticleLoopForLocation(lat, lon, dirGraus, velocity) {
+      if (!particlesEnabled) return;
+      
+      // Cria partículas continuamente
+      const interval = setInterval(() => {
+        if (!particlesEnabled) {
+          clearInterval(interval);
+          return;
+        }
+        // As partículas seguem a EXATA direção do vento (sem aleatoriedade)
+        createWindParticle(lat, lon, dirGraus, velocity);
+      }, 200); // cria uma nova partícula a cada 200ms
+      
+      particleIntervals.push(interval);
+    }
+
+    function stopAllParticleLoops() {
+      particleIntervals.forEach(interval => clearInterval(interval));
+      particleIntervals = [];
+      document.querySelectorAll('.wind-particle').forEach(p => p.remove());
+    }
+
+    // Inicia loops para todo o conjunto de dados sem reconstruir camadas/marcadores
+    function startParticlesForData(dados){
+      if (!particlesEnabled) return;
+      stopAllParticleLoops();
+      dados.forEach(d => {
+        startParticleLoopForLocation(d.lat, d.lon, d.dir_media, d.vel_media);
+      });
+    }
+
+    // Contêineres de camada
+    let heatLayer;
+    const markersLayer = L.layerGroup().addTo(map);
+
+    // Controle de alternância do heatmap
+    const heatToggle = L.control({ position: 'topright' });
+    heatToggle.onAdd = function () {
+      const div = L.DomUtil.create('div', 'map-control');
+      div.innerHTML = `
+        <label style="user-select:none; display:block; margin-bottom:8px;">
+          <input type="checkbox" id="toggleHeat" checked> Mostrar heatmap
+        </label>
+        <label style="user-select:none; display:block; margin-bottom:8px;">
+          <input type="checkbox" id="toggleParticles" checked> Partículas do vento
+        </label>
+        <button id="fitBoundsBtn" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); background:white; cursor:pointer; font-size:13px;">⤢ Ver todas as estações</button>
+        <div style="margin-top:8px; display:flex; gap:6px;">
+          <button id="btnMs" style="flex:1; padding:5px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); background:white; color:#333; cursor:pointer; font-size:12px; font-weight:600;">m/s</button>
+          <button id="btnKmh" style="flex:1; padding:5px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); background:#1f8f3e; color:white; cursor:pointer; font-size:12px; font-weight:600;">km/h</button>
+        </div>`;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+    heatToggle.addTo(map);
+
+    // ===== Botão fit bounds =====
+    document.addEventListener('click', e => {
+      if (e.target && e.target.id === 'fitBoundsBtn') {
+        if (currentData && currentData.length) {
+          const bounds = L.latLngBounds(currentData.map(d => [d.lat, d.lon]));
+          map.fitBounds(bounds, { padding: [100, 100] });
+        }
+      }
+      if (e.target && e.target.id === 'btnMs') {
+        unidade = 'ms';
+        document.getElementById('btnMs').style.background = '#1f8f3e';
+        document.getElementById('btnMs').style.color = 'white';
+        document.getElementById('btnKmh').style.background = 'white';
+        document.getElementById('btnKmh').style.color = '#333';
+        if (currentData && currentData.length) renderData(currentData);
+        updateLegendUnit();
+      }
+      if (e.target && e.target.id === 'btnKmh') {
+        unidade = 'kmh';
+        document.getElementById('btnKmh').style.background = '#1f8f3e';
+        document.getElementById('btnKmh').style.color = 'white';
+        document.getElementById('btnMs').style.background = 'white';
+        document.getElementById('btnMs').style.color = '#333';
+        if (currentData && currentData.length) renderData(currentData);
+        updateLegendUnit();
+      }
+    });
+
+    // Pausa partículas quando um popup está aberto; retoma ao fechar
+    map.on('popupopen', () => {
+      particlesEnabled = false;
+      stopAllParticleLoops();
+    });
+    map.on('popupclose', () => {
+      particlesEnabled = true;
+      if (currentData && currentData.length) {
+        startParticlesForData(currentData);
+      }
+    });
+
+    document.addEventListener('change', e => {
+      if (e.target && e.target.id === 'toggleHeat') {
+        if (e.target.checked) {
+          if (heatLayer) map.addLayer(heatLayer);
+        } else {
+          if (heatLayer) map.removeLayer(heatLayer);
+        }
+      }
+      if (e.target && e.target.id === 'toggleParticles') {
+        particlesEnabled = e.target.checked;
+        if (!e.target.checked) {
+          // remove todas as partículas ativas e interrompe os loops
+          stopAllParticleLoops();
+        } else {
+          // reinicia partículas para o conjunto filtrado atual quando reativado
+          if (currentData && currentData.length) {
+            startParticlesForData(currentData);
+          }
+        }
+      }
+    });
+
+    // ===== Carrega o JSON =====
+  let originalData = [];
+  let currentData = [];
+  let atualizado_em = null;
+  let unidade = 'kmh';
+
+    // ===== renderData =====
+    // Função principal de renderização. Recebe um array de estações e:
+    // 1. Atualiza o heatmap de calor no mapa
+    // 2. Limpa e redesenha todos os marcadores (círculos com seta de direção)
+    // 3. Cria o popup (ao clicar) e tooltip (ao passar o mouse) de cada estação
+    // 4. Reinicia as partículas de vento
+    // 5. Atualiza o indicador de status (rodapé do mapa)
+    // É chamada na carga inicial e toda vez que um filtro é aplicado.
+    function renderData(dados){
+      currentData = dados.slice();
+      const heatData = dados.map(d => [d.lat, d.lon, (d.vel_media || 0) / 6]);
+
+      if (heatLayer) map.removeLayer(heatLayer);
+
+      stopAllParticleLoops();
+
+      heatLayer = L.heatLayer(heatData, {
+        radius: 55,
+        blur: 20,
+        maxZoom: 12,
+        minOpacity: 0.25,
+        gradient: {
+          0.0:   '#005cff',
+          0.333: '#66cc00',
+          0.667: '#ffcc00',
+          1.0:   '#ff3b00'
+        }
+      }).addTo(map);
+
+      markersLayer.clearLayers();
+      dados.forEach(d => {
+        const cat = findWindCategory(d.vel_media || 0);
+        const alert = findAlertLevel(d.vel_media || 0);
+        const color = alert.color;
+        const radius = getRadius(d.vel_media);
+
+        const arrowHtml = `<div style="position:absolute;width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none;transform:rotate(${d.dir_media}deg);">
+          <svg width="16" height="16" viewBox="0 0 24 24" style="filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));">
+            <path d="M12 2 L19 21 L12 17 L5 21 Z" fill="white" stroke="#1b2b3a" stroke-width="0.5"/>
+          </svg>
+        </div>`;
+
+        const marker = L.circleMarker([d.lat, d.lon], {
+          radius: radius,
+          color: '#1b2b3a',
+          weight: 1,
+          fillColor: color,
+          fillOpacity: 0.95
+        }).addTo(markersLayer);
+
+        const markerElement = marker.getElement();
+        if (markerElement) {
+          markerElement.innerHTML += arrowHtml;
+        }
+
+  // Use a logo para criar um popup mais informativo e visualmente atraente, mantendo a consistência com o design do site.
+  const logoHtml = getHeaderLogoHTML(28);
+
+        const arrowSvg = `<svg width="28" height="28" viewBox="0 0 24 24" style="transform-origin:center; transform:rotate(${d.dir_media}deg); display:inline-block; vertical-align:middle; margin-right:8px; flex-shrink:0;"><path d="M12 2 L19 21 L12 17 L5 21 Z" fill="#1f8f3e" stroke="#1b2b3a" stroke-width="0.5"/></svg>`;
+
+        const velDisplay = unidade === 'ms'
+          ? `${(d.vel_media||0).toFixed(2)} <span style="font-size:12px;">m/s</span>`
+          : `${((d.vel_media||0) * 3.6).toFixed(2)} <span style="font-size:12px;">km/h</span>`;
+
+        const popupContent = `
+          <div style="
+            font-family: Inter, sans-serif;
+            color: #083a20;
+            background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(250,254,252,0.96) 100%);
+            border-left: 4px solid ${alert.color};
+            border-radius: 8px;
+            padding: 14px 14px;
+            min-width: 240px;
+            box-shadow: 0 2px 8px rgba(31,143,62,0.15);
+          ">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              ${logoHtml}
+              <div>
+                <div style="font-size:14px; font-weight:700; color:#1f8f3e;">${d.estacao}</div>
+                <div style="font-size:11px; color:#66c26a; font-weight:500;">Estação Meteorológica</div>
+              </div>
+            </div>
+
+            <div style="background:${alert.bg}; border:1px solid ${alert.color}; border-radius:6px; padding:8px 12px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:10px; color:#666; margin-bottom:2px;">Nível de Alerta — Vento</div>
+                <div style="font-size:13px; font-weight:700; color:${alert.color};">${alert.name}</div>
+              </div>
+              <div style="font-size:11px; color:${alert.color}; font-weight:600;">${alert.label}</div>
+            </div>
+
+            <div style="background:rgba(31,143,62,0.06); border-radius:6px; padding:10px; margin-bottom:10px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                ${arrowSvg}
+                <div>
+                  <div style="font-size:12px; color:#666;">Velocidade do Vento</div>
+                  <div style="font-size:18px; font-weight:700; color:#1f8f3e;">${velDisplay}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div style="background:#f0f8f4; border-radius:6px; padding:8px; text-align:center;">
+                <div style="font-size:11px; color:#666; margin-bottom:4px;">Direção</div>
+                <div style="font-size:14px; font-weight:700; color:#1f8f3e;">${direcaoTexto(d.dir_media)}</div>
+                <div style="font-size:10px; color:#999;">${d.dir_media}°</div>
+              </div>
+              <div style="background:#f0f8f4; border-radius:6px; padding:8px; text-align:center;">
+                <div style="font-size:11px; color:#666; margin-bottom:4px;">Intensidade</div>
+                <div style="font-size:14px; font-weight:700; color:${color};">●</div>
+                <div style="font-size:10px; color:#999;">${cat.name}</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+
+        const tooltipContent = `
+          <div style="font-family:Inter,sans-serif; font-size:12px; color:#083a20; line-height:1.6;">
+            <div style="font-weight:700; font-size:13px; margin-bottom:4px;">${d.estacao}</div>
+            <div>${velDisplay} &nbsp;·&nbsp; ${direcaoTexto(d.dir_media)}</div>
+            <div style="margin-top:4px; display:inline-block; background:${alert.bg}; color:${alert.color}; font-weight:700; font-size:11px; padding:2px 7px; border-radius:4px; border:1px solid ${alert.color};">${alert.name}</div>
+          </div>`;
+        marker.bindTooltip(tooltipContent, { sticky: false, offset: [10, 0] });
+      });
+
+      // Inicia loops de partículas para todos os pontos (mantido separado para pausar/retomar)
+      startParticlesForData(dados);
+
+      // oculta sobreposição de carregamento
+      const loading = document.getElementById('loading');
+      if (loading) loading.style.display = 'none';
+
+      // Atualiza o indicador de status
+      const statusIndicator = document.getElementById('statusIndicator');
+      if (statusIndicator) {
+        const timestamp = atualizado_em ? ` · Atualizado às ${atualizado_em}` : '';
+        statusIndicator.textContent = `Exibindo ${dados.length} de ${originalData.length} estações${timestamp}`;
+      }
+    }
+
+    // DATA_PATHS: lista de caminhos possíveis para o vento.json.
+    // O código tenta cada um em ordem até encontrar um que funcione.
+    // Isso é necessário porque o caminho relativo muda dependendo de onde
+    // o arquivo HTML é aberto (da pasta frontEnd, da raiz do projeto, etc.).
+    // Para usar dados de teste, troque para o caminho do testeVentoJson
+    // (consulte o uteis.txt na raiz do projeto).
+    const DATA_PATHS = [
+      '../backEnd/apiJson/vento.json',
+      'backEnd/apiJson/vento.json',
+      'apiJson/vento.json'
+    ];
+
+    // loadWindData: tenta carregar o JSON percorrendo DATA_PATHS um por um.
+    // Se o fetch falhar (arquivo não encontrado), passa para o próximo caminho.
+    function loadWindData(){
+      let idx = 0;
+
+      function tryNext(){
+        if (idx >= DATA_PATHS.length) {
+          throw new Error(`Nenhum caminho de dados válido encontrado. Tentativas: ${DATA_PATHS.join(', ')}`);
+        }
+
+        const path = DATA_PATHS[idx++];
+        return fetch(path).then(res => {
+          if (!res.ok) throw new Error(`Falha em ${path} (HTTP ${res.status})`);
+          return res.json();
+        }).catch(() => tryNext());
+      }
+
+      return tryNext();
+    }
+
+    loadWindData()
+      .then(json => {
+        atualizado_em = json.atualizado_em || null;
+        const dados = json.estacoes || json || [];
+        originalData = dados;
+
+        // preenche a lista de estações (checkboxes + busca)
+        const stationList = document.getElementById('stationList');
+        const stationSearch = document.getElementById('stationSearch');
+        const selectAllStations = document.getElementById('selectAllStations');
+        const stations = Array.from(new Set(originalData.map(d => d.estacao))).sort((a,b)=>a.localeCompare(b));
+        stations.forEach((s, idx) => {
+          const item = document.createElement('div'); item.className = 'station-item';
+          const input = document.createElement('input'); input.type = 'checkbox'; input.value = s; input.id = `st-${idx}`;
+          input.checked = true;
+          const label = document.createElement('label'); label.htmlFor = `st-${idx}`; label.style.margin = '0'; label.textContent = s;
+          item.appendChild(input); item.appendChild(label);
+          stationList.appendChild(item);
+        });
+
+            function debounce(fn, wait){
+              let t = null;
+              return function(...args){
+                clearTimeout(t);
+                t = setTimeout(()=> fn.apply(this,args), wait);
+              };
+            }
+
+            function updateStationListFilter(){
+              const q = stationSearch.value.trim().toLowerCase();
+              Array.from(stationList.children).forEach(child => {
+                const txt = child.textContent.toLowerCase();
+                child.style.display = txt.includes(q) ? '' : 'none';
+              });
+            }
+
+            stationSearch.addEventListener('input', debounce(updateStationListFilter, 220));
+
+        const hasTimestamp = originalData.some(d => d.timestamp || d.data || d.date);
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo = document.getElementById('dateTo');
+        if (hasTimestamp){
+          dateFrom.disabled = false; dateTo.disabled = false;
+        } else {
+          dateFrom.disabled = true; dateTo.disabled = true;
+          dateFrom.title = 'Sem histórico de data nos dados';
+          dateTo.title = 'Sem histórico de data nos dados';
+        }
+
+        // inicial
+        renderData(originalData);
+        const initialBounds = L.latLngBounds(originalData.map(d => [d.lat, d.lon]));
+        map.fitBounds(initialBounds, { padding: [100, 100] });
+
+        // applyFilters: lê o estado atual dos checkboxes, datas e legenda
+        // e filtra originalData antes de chamar renderData com o resultado.
+        // intensityIndex = número da faixa da legenda clicada (null = sem filtro de intensidade).
+        function applyFilters(intensityIndex = null){
+          const selected = Array.from(document.querySelectorAll('#stationList input[type=checkbox]:checked')).map(o=>o.value);
+          let filtered = originalData.slice();
+          if (selected.length>0) filtered = filtered.filter(d=> selected.includes(d.estacao));
+
+          if (hasTimestamp){
+            const fromVal = dateFrom.value; const toVal = dateTo.value;
+            if (fromVal) filtered = filtered.filter(d=> new Date((d.timestamp||d.data||d.date)) >= new Date(fromVal));
+            if (toVal) filtered = filtered.filter(d=> new Date((d.timestamp||d.data||d.date)) <= new Date(toVal));
+          }
+
+          // intensityIndex: mapa as categorias da legenda para filtrar por intensidade (null = sem filtro, mostrar todas)
+          if (typeof intensityIndex === 'number'){
+            const r = ALERT_LEVELS[intensityIndex] || null;
+            if (r) filtered = filtered.filter(d=> {
+              const v = (d.vel_media||0);
+              return v >= r.min && v < r.max;
+            });
+          }
+
+          renderData(filtered);
+        }
+
+        document.getElementById('applyFilter').addEventListener('click', ()=>{
+          applyFilters(null);
+          document.getElementById('filterPanel').classList.remove('open');
+          document.getElementById('filterBackdrop').classList.remove('open');
+          document.getElementById('toggleFilters').textContent = 'Filtros ▶';
+        });
+
+        document.getElementById('clearFilter').addEventListener('click', ()=>{
+          Array.from(document.querySelectorAll('#stationList input[type=checkbox]')).forEach(cb=>cb.checked = true);
+          const stationSearchEl = document.getElementById('stationSearch'); if (stationSearchEl) stationSearchEl.value = '';
+          updateStationListFilter();
+          dateFrom.value = '';
+          dateTo.value = '';
+          const active = document.querySelectorAll('.legend .legend-item.active');
+          active.forEach(a=>a.classList.remove('active'));
+          renderData(originalData);
+        });
+
+        // adiciona cliques da legenda: clicar em uma faixa alterna esse filtro de intensidade
+        const legendItems = document.querySelectorAll('.legend .legend-item');
+        if (legendItems && legendItems.length) {
+          legendItems.forEach(li => {
+            li.addEventListener('click', ()=>{
+              const idx = Number(li.getAttribute('data-index'));
+              const already = li.classList.contains('active');
+              // limpa todos os itens ativos
+              document.querySelectorAll('.legend .legend-item').forEach(x=>x.classList.remove('active'));
+              if (!already) {
+                li.classList.add('active');
+                applyFilters(idx);
+              } else {
+                // desativado -> mostra a seleção atual
+                applyFilters(null);
+              }
+            });
+          });
+        }
+        // Toggle do painel de filtros
+        (function(){
+          const filterPanel = document.getElementById('filterPanel');
+          const backdrop = document.getElementById('filterBackdrop');
+          const toggleBtn = document.getElementById('toggleFilters');
+          const closeBtn = document.getElementById('closeFilters');
+          if (!filterPanel || !toggleBtn || !closeBtn) return;
+
+          function openPanel(){
+            filterPanel.classList.add('open');
+            backdrop.classList.add('open');
+            toggleBtn.textContent = 'Filtros ◀';
+          }
+          function closePanel(){
+            filterPanel.classList.remove('open');
+            backdrop.classList.remove('open');
+            toggleBtn.textContent = 'Filtros ▶';
+          }
+
+          toggleBtn.addEventListener('click', ()=> filterPanel.classList.contains('open') ? closePanel() : openPanel());
+          closeBtn.addEventListener('click', closePanel);
+          backdrop.addEventListener('click', closePanel);
+        })();
+      })
+      .catch(err => {
+        console.error('Erro ao carregar vento.json:', err);
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.innerText = 'Erro ao carregar dados';
+          loading.style.color = '#b33';
+        }
+      });
+
+    // ===== Legenda (níveis de alerta CENAD/INMET) =====
+    const legenda = L.control({ position: 'bottomright' });
+    legenda.onAdd = function(){
+      const div = L.DomUtil.create('div','legend');
+      div.innerHTML = '<div style="font-weight:600; font-size:12px; margin-bottom:6px;">Nível de Alerta — Vento</div>';
+      const wrapper = document.createElement('div');
+      wrapper.style.display='grid';
+      wrapper.style.gridTemplateColumns='repeat(1, minmax(0,1fr))';
+      wrapper.style.gap='6px';
+      ALERT_LEVELS.forEach((alert,i)=>{
+        const item = document.createElement('button');
+        item.className = 'legend-item';
+        item.setAttribute('data-index', i);
+        item.style.display='flex';
+        item.style.alignItems='center';
+        item.style.gap='8px';
+        item.style.padding='6px 8px';
+        item.style.font='600 11px Inter, sans-serif';
+        item.style.background=alert.bg;
+        item.style.borderRadius='8px';
+        item.style.border=`1px solid ${alert.color}`;
+        item.style.cursor='pointer';
+        item.style.width='100%';
+        item.style.textAlign='left';
+        let faixa;
+        if (alert.min === -Infinity) faixa = `< 11.1 m/s`;
+        else if (alert.max === Infinity) faixa = `≥ 27.8 m/s`;
+        else faixa = `${alert.min}–${alert.max} m/s`;
+        item.innerHTML = `<span style="width:14px;height:14px;display:inline-block;border-radius:50%;background:${alert.color};flex-shrink:0;"></span><span style="color:${alert.color};">${alert.name}</span><span class="legend-faixa" style="margin-left:auto; font-weight:400; color:#888;">${faixa}</span>`;
+        wrapper.appendChild(item);
+      });
+      div.appendChild(wrapper);
+      return div;
+    };
+    legenda.addTo(map);
+
+    const FAIXAS_MS  = ['< 11.1 m/s', '11.1–16.7 m/s', '16.7–27.8 m/s', '≥ 27.8 m/s'];
+    const FAIXAS_KMH = ['< 40 km/h',  '40–60 km/h',    '61–100 km/h',   '≥ 100 km/h'];
+
+    function updateLegendUnit() {
+      const spans = document.querySelectorAll('.legend-faixa');
+      const list = unidade === 'ms' ? FAIXAS_MS : FAIXAS_KMH;
+      spans.forEach((el, i) => { el.textContent = list[i]; });
+    }
+    updateLegendUnit();
+
+    (function(){
+      const style = document.createElement('style');
+      style.textContent = `.legend .legend-item.active{box-shadow:0 0 0 2px rgba(31,143,62,0.35) !important; background:linear-gradient(145deg,#eafff3,#f6fff9)!important}`;
+      document.head.appendChild(style);
+    })();
+  </script>
+</body>
+</html>

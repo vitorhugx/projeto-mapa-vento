@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Mapa de Intensidade do Vento</title>
+
+	<!-- Biblioteca Leaflet -->
+	<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+	<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+	<!-- Plugin de mapa de calor -->
+	<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+	<style>
+			html,body { height: 100%; margin: 0; }
+			/* header maior para comportar título e 2 subtítulos sem cortar */
+			#map { height: calc(100vh - 80px); width: 100%; }
+
+				header {
+					height: 80px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 0 16px;
+			background: #0b4f6c;
+			color: white;
+			box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+			font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+		}
+
+		.legend {
+			background: white;
+			padding: 10px 15px;
+			line-height: 1.4em;
+			border-radius: 8px;
+			box-shadow: 0 0 10px rgba(0,0,0,0.2);
+			font-size: 14px;
+			font-family: sans-serif;
+		}
+
+		.legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.9; }
+
+			/* Tamanhos refinados: título mais visível, subtítulos menores e legíveis */
+			.title { font-weight: 700; font-size: 20px; line-height: 1.1; }
+			.subtitle { font-size: 13px; opacity: 0.92; }
+			.subtitle2 { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+			/* controles (seleção de estação + reset) no lado direito do cabeçalho */
+			.header-right { display:flex; gap:8px; align-items:center; }
+			.station-select { padding:6px 8px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); font-size:13px; }
+			.small-btn { padding:6px 8px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); background:white; cursor:pointer; }
+
+			/* melhorias visuais */
+			head { box-shadow: 0 4px 12px rgba(11,79,108,0.12); }
+			header .title { letter-spacing: 0.2px; }
+			#map { border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+
+			.status { font-size:12px; color: rgba(255,255,255,0.9); display:flex; align-items:center; gap:8px; }
+			.status .spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius:50%; display:inline-block; opacity:0; transform:scale(0.9); transition:opacity .15s, transform .15s; }
+			.status.loading .spinner { opacity:1; transform:scale(1); }
+
+			.footer { position:fixed; right:16px; bottom:12px; background:rgba(255,255,255,0.95); padding:8px 10px; border-radius:6px; font-size:12px; box-shadow:0 6px 18px rgba(0,0,0,0.08); color:#222; }
+
+			/* controle de camadas compacto */
+			.leaflet-control-layers { font-size:13px; max-width:180px; }
+			.leaflet-control-layers-expanded { max-height:200px; overflow:auto; }
+	</style>
+</head>
+
+<body>
+	<header>
+			<div>
+				<div class="title">Mapa Interativo dos Ventos</div>
+				<div class="subtitle">Dados das Estações climáticas — Intensidade e Direção do Vento</div>
+				<div class="subtitle2">Clique nos pontos para ver detalhes e valores</div>
+			</div>
+			<div class="header-right">
+				<select id="stationSelect" class="station-select">
+					<option value="__all">Todas as estações</option>
+				</select>
+				<button id="resetView" class="small-btn" title="Mostrar todas">🔁 Todas</button>
+				<div id="status" class="status"><span class="spinner"></span><span id="lastUpdate">Última atualização: —</span></div>
+			</div>
+	</header>
+
+	<div id="map"></div>
+
+	<script>
+		// ===== Inicializa o mapa =====
+		const map = L.map("map").setView([-29.72, -52.45], 9);
+
+		L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+			maxZoom: 18,
+			attribution: "&copy; OpenStreetMap contributors",
+		}).addTo(map);
+
+		// ===== Função para converter direção (°) em texto =====
+		function direcaoTexto(graus) {
+			const dirs = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
+			const idx = Math.round(graus / 45) % 8;
+			return dirs[idx];
+		}
+
+		// ===== Camadas (heat + markers) e função de carregamento =====
+		const heat = L.heatLayer([], {
+			radius: 55,
+			blur: 20,
+			maxZoom: 12,
+			minOpacity: 0.3,
+			gradient: {
+				0.0: "#0000ff",
+				0.25: "#00ffff",
+				0.5: "#00ff00",
+				0.75: "#ffff00",
+				1.0: "#ff0000"
+			}
+		});
+
+		const markersLayer = L.layerGroup();
+		const highlightLayer = L.layerGroup();
+
+		// Adiciona heat por padrão
+		heat.addTo(map);
+		// Mostra marcadores por padrão (checkbox 'Marcadores' marcado)
+		markersLayer.addTo(map);
+
+		// Controle para alternar camadas
+		const overlays = {
+			'Heatmap': heat,
+			'Marcadores': markersLayer
+		};
+		L.control.layers(null, overlays, { collapsed: false, position: 'topright' }).addTo(map);
+
+		// Função que (re)carrega dados e atualiza as camadas
+		let loading = false;
+		let fullData = [];
+		let fullHeatData = [];
+		let currentNorm = 4; // divisor usado para normalizar heatmap
+		let selectedStation = '__all';
+		const DATA_PATHS = [
+			'../backEnd/vento/vento.json',
+			'backEnd/vento/vento.json',
+			'vento/vento.json'
+		];
+
+		async function fetchWindData() {
+			for (const path of DATA_PATHS) {
+				try {
+					const res = await fetch(path);
+					if (!res.ok) continue;
+					return await res.json();
+				} catch (_) {}
+			}
+
+			throw new Error('Nenhum caminho de dados válido encontrado: ' + DATA_PATHS.join(', '));
+		}
+
+		async function loadDados(showErrors = true) {
+			if (loading) return;
+			loading = true;
+			setLoadingIndicator(true);
+			try {
+				const dados = await fetchWindData();
+				if (!Array.isArray(dados) || dados.length === 0) {
+					console.warn('vento.json vazio ou formato inesperado', dados);
+					loading = false;
+					return;
+				}
+
+				// guarda dados completos para filtros
+				fullData = dados;
+
+				// calcula normalização automática (usa o valor máximo para escala absoluta)
+				const vels = dados.map(d => Number(d.vel_media || 0));
+				const maxVel = vels.length ? Math.max(...vels) : 0.1;
+				// normalizamos pelo máximo observado para que as cores representem uma escala absoluta
+				currentNorm = Math.max(maxVel, 0.1);
+
+				// Prepara dados normalizados para heatmap (peso entre 0 e 1)
+				// peso linear relativo ao máximo (pode trocar por raiz/log se preferir maior contraste)
+				fullHeatData = dados.map(d => {
+					const vel = Number(d.vel_media || 0);
+					const weight = Math.min(1, vel / currentNorm);
+					return [d.lat, d.lon, weight];
+				});
+				heat.setLatLngs(fullHeatData);
+
+				// Atualiza marcadores (lista completa)
+				markersLayer.clearLayers();
+				dados.forEach(d => {
+					const m = L.circleMarker([d.lat, d.lon], {
+						radius: 6,
+						color: '#333',
+						fillColor: '#ffffff',
+						fillOpacity: 0.9
+					}).bindPopup(
+						`<b>${d.estacao}</b><br>💨 ${Number(d.vel_media || 0).toFixed(2)} m/s<br>🧭 ${direcaoTexto(d.dir_media || 0)} (${d.dir_media || 0}°)`
+					);
+					markersLayer.addLayer(m);
+				});
+
+				// popula o select de estações (mantendo seleção atual, se possível)
+				const select = document.getElementById('stationSelect');
+				const prev = select.value;
+				// remove antigas opções, exceto a primeira
+				while (select.options.length > 1) select.remove(1);
+				const stations = dados.map(d => d.estacao).filter(Boolean).sort((a,b)=>a.localeCompare(b, 'pt-BR'));
+				stations.forEach(st => {
+					const opt = document.createElement('option');
+					opt.value = st;
+					opt.textContent = st;
+					select.appendChild(opt);
+				});
+				if (stations.includes(prev)) select.value = prev; else select.value = '__all';
+
+				// atualiza legenda dinâmica
+				updateLegenda(currentNorm);
+
+				// se uma estação está selecionada, aplica o filtro
+				if (selectedStation && selectedStation !== '__all') applyStationFilter(selectedStation);
+			} catch (err) {
+				console.error('Erro ao carregar vento.json:', err);
+				if (showErrors) {
+					const center = map.getCenter();
+					L.popup({ closeOnClick: false, autoClose: false })
+						.setLatLng(center)
+						.setContent('<b>Erro ao carregar dados do vento.</b><br>Verifique os caminhos <code>../backEnd/vento/vento.json</code>, <code>backEnd/vento/vento.json</code> ou <code>vento/vento.json</code> e o console.')
+						.openOn(map);
+				}
+			} finally {
+				loading = false;
+				setLoadingIndicator(false);
+				updateLastUpdate();
+			}
+		}
+
+		// Carrega dados inicialmente
+		loadDados();
+
+		// função para atualizar legenda dinamicamente baseada no currentNorm
+		function updateLegenda(norm) {
+			const legendDiv = document.querySelector('.legend');
+			if (!legendDiv) return;
+			const cores = ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
+			// valores numéricos correspondentes aos stops 0,25,50,75,100%
+			const stops = [0, 0.25, 0.5, 0.75, 1.0].map(p => (p * norm).toFixed(2));
+			const labels = [
+				`Fraco (< ${stops[1]} m/s)`,
+				`Moderado (${stops[1]}–${stops[2]} m/s)`,
+				`Forte (${stops[2]}–${stops[3]} m/s)`,
+				`Muito forte (${stops[3]}–${stops[4]} m/s)`,
+				`> ${stops[4]} m/s`
+			];
+			let html = '<b>Intensidade do vento</b><br>';
+			for (let i = 0; i < cores.length; i++) html += `<i style="background:${cores[i]}"></i> ${labels[i]}<br>`;
+			legendDiv.innerHTML = html;
+		}
+
+		// aplica filtro por estação: mostra apenas a estação selecionada
+		function applyStationFilter(estacao) {
+			selectedStation = estacao;
+			if (!fullData || fullData.length === 0) return;
+			if (estacao === '__all') {
+				heat.setLatLngs(fullHeatData);
+				markersLayer.clearLayers();
+				fullData.forEach(d => {
+					const m = L.circleMarker([d.lat, d.lon], {
+						radius: 6,
+						color: '#333',
+						fillColor: '#ffffff',
+						fillOpacity: 0.9
+					}).bindPopup(
+						`<b>${d.estacao}</b><br>💨 ${Number(d.vel_media || 0).toFixed(2)} m/s<br>🧭 ${direcaoTexto(d.dir_media || 0)} (${d.dir_media || 0}°)`
+					);
+					markersLayer.addLayer(m);
+				});
+				// remove qualquer popup aberto
+				map.closePopup();
+				// remove highlight
+				highlightLayer.clearLayers();
+
+				// garante que markersLayer esteja no mapa e calcula bounds a partir dos dados
+				if (!map.hasLayer(markersLayer)) markersLayer.addTo(map);
+				const latlngs = fullData.map(d => [d.lat, d.lon]);
+				if (latlngs.length) {
+					const bounds = L.latLngBounds(latlngs);
+					if (bounds.isValid()) map.fitBounds(bounds.pad(0.15));
+					else map.setView([-29.72, -52.45], 9);
+				} else {
+					map.setView([-29.72, -52.45], 9);
+				}
+				return;
+			}
+
+			// encontra a estação
+			const item = fullData.find(d => d.estacao === estacao);
+			if (!item) return;
+			// mantém heatmap completo para preservar escala de cores
+			heat.setLatLngs(fullHeatData);
+			// adiciona destaque visual para a estação selecionada
+			highlightLayer.clearLayers();
+			const hl = L.circle([item.lat, item.lon], {
+				radius: 4000, // metros - círculo visual para destacar a área (ajustável)
+				color: '#ff3300',
+				weight: 2,
+				fill: false
+			});
+			const bigMarker = L.circleMarker([item.lat, item.lon], {
+				radius: 10,
+				color: '#ff3300',
+				fillColor: '#ff7a66',
+				fillOpacity: 0.9
+			}).bindPopup(`<b>${item.estacao}</b><br>💨 ${Number(item.vel_media || 0).toFixed(2)} m/s<br>🧭 ${direcaoTexto(item.dir_media || 0)} (${item.dir_media || 0}°)`);
+			highlightLayer.addLayer(hl);
+			highlightLayer.addLayer(bigMarker);
+			// garante que destaque esteja no mapa
+			if (!map.hasLayer(highlightLayer)) highlightLayer.addTo(map);
+			bigMarker.openPopup();
+			map.setView([item.lat, item.lon], 12);
+		}
+
+		// eventos do select e do botão reset
+		document.getElementById('stationSelect').addEventListener('change', function(e){
+			applyStationFilter(e.target.value);
+		});
+		document.getElementById('resetView').addEventListener('click', function(){
+			document.getElementById('stationSelect').value = '__all';
+			applyStationFilter('__all');
+		});
+
+		function setLoadingIndicator(on) {
+			const st = document.getElementById('status');
+			if (!st) return;
+			if (on) st.classList.add('loading'); else st.classList.remove('loading');
+		}
+
+		function updateLastUpdate() {
+			const el = document.getElementById('lastUpdate');
+			if (!el) return;
+			const now = new Date();
+			el.textContent = `Última atualização: ${now.toLocaleString('pt-BR')}`;
+		}
+
+		// Botão de Atualizar agora (controle customizado)
+		const RefreshControl = L.Control.extend({
+			options: { position: 'topright' },
+			onAdd: function () {
+				const btn = L.DomUtil.create('button', 'refresh-btn');
+				btn.type = 'button';
+				btn.title = 'Atualizar dados agora';
+				btn.innerHTML = '🔄 Atualizar';
+				btn.style.padding = '6px 8px';
+				btn.style.background = 'white';
+				btn.style.border = '1px solid rgba(0,0,0,0.15)';
+				btn.style.borderRadius = '4px';
+				btn.style.cursor = 'pointer';
+
+				L.DomEvent.on(btn, 'click', function (e) {
+					L.DomEvent.stopPropagation(e);
+					L.DomEvent.preventDefault(e);
+					loadDados();
+				});
+				return btn;
+			}
+		});
+		map.addControl(new RefreshControl());
+
+		// ===== Legenda =====
+		const legenda = L.control({ position: "bottomright" });
+		legenda.onAdd = function () {
+			const div = L.DomUtil.create("div", "legend");
+			const cores = ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
+			const labels = [
+				"Fraco (< 1 m/s)",
+				"Moderado (1–2 m/s)",
+				"Forte (2–3.5 m/s)",
+				"Muito forte (> 3.5 m/s)",
+				"Extremo"
+			];
+			div.innerHTML += "<b>Intensidade do vento</b><br>";
+			for (let i = 0; i < cores.length; i++)
+				div.innerHTML += `<i style="background:${cores[i]}"></i> ${labels[i]}<br>`;
+			return div;
+		};
+		legenda.addTo(map);
+	</script>
+</body>
+</html>
+

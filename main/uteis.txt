@@ -1,0 +1,13 @@
+Mudar o caminho entre os dados-reais e dados-teste
+
+const DATA_PATHS = [
+  '../backEnd/apiJson/vento.json',
+  'backEnd/apiJson/vento.json',
+  'apiJson/vento.json'
+];
+
+const DATA_PATHS = [
+  '../backEnd/local-data/testeVentoJson/vento.json',
+  'backEnd/local-data/testeVentoJson/vento.json',
+  'local-data/testeVentoJson/vento.json'
+];
