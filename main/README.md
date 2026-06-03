@@ -42,7 +42,7 @@ Para mais detalhes sobre como a API foi descoberta e como funciona, consulte [`A
 ## Estrutura do Projeto
 
 ```
-PrototipoMapaVentoDemetra/
+ProjeMapVento-ColetaDadosIA/
 │
 ├── frontEnd/
 │   ├── WindMap.html              # Interface principal
@@ -76,6 +76,14 @@ PrototipoMapaVentoDemetra/
 ---
 
 ## Como usar
+
+### 0. Instalar dependências
+
+Antes de rodar o script pela primeira vez, instale as bibliotecas Python necessárias:
+
+```bash
+pip install -r requirements.txt
+```
 
 ### 1. Atualizar os dados
 
