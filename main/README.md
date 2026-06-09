@@ -69,6 +69,7 @@ ProjeMapVento-ColetaDadosIA/
 ├── atualizar_dados.sh            # Script de atualização com um clique (Mac)
 ├── atualizar_dados.bat           # Script de atualização com um clique (Windows)
 ├── uteis.txt                     # Trechos de código úteis para referência rápida
+├── requirements.txt              # Dependências Python do projeto
 ├── API_UNISC.md                  # Documentação da API descoberta
 └── README.md                     # Este arquivo
 ```
