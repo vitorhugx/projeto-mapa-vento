@@ -66,6 +66,13 @@ ProjeMapVento-ColetaDadosIA/
 │       └── testeVentoJson/
 │           └── vento.json        # Dados fictícios para testes de visualização
 │
+├── windLog/
+│   ├── WindLog.html              # Interface de histórico de vento por estação
+│   ├── WindLogBackup.html        # Cópia de segurança da versão estável
+│   ├── proxy.py                  # Servidor local intermediário (resolve CORS)
+│   ├── requirements.txt          # Dependências Python do windLog
+│   └── README.md                 # Instruções de uso do WindLog
+│
 ├── atualizar_dados.sh            # Script de atualização com um clique (Mac)
 ├── atualizar_dados.bat           # Script de atualização com um clique (Windows)
 ├── uteis.txt                     # Trechos de código úteis para referência rápida
