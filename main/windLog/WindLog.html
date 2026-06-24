@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WindLog</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --primary-1: #1f8f3e;
+      --primary-2: #66c26a;
+      --card: #ffffff;
+      --muted: #666;
+      --accent: #28a745;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: linear-gradient(90deg, var(--primary-1), var(--primary-2));
+      color: white;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 18px rgba(7,60,40,0.12);
+    }
+
+    .logo {
+      width: 56px;
+      height: 56px;
+      flex: 0 0 56px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 0.9rem;
+      opacity: 0.9;
+      font-weight: 300;
+    }
+
+    /* ===== Conteúdo principal ===== */
+    main {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ===== Painel de controle ===== */
+    .controls {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 18px rgba(2,60,24,0.08);
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .control-group select,
+    .control-group input[type="date"] {
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid #dde4ec;
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      color: #222;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color 200ms;
+      width: 100%;
+    }
+
+    .control-group select:focus,
+    .control-group input[type="date"]:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-buscar {
+      background: linear-gradient(90deg, var(--primary-1), var(--primary-2));
+      color: white;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: Inter, sans-serif;
+      cursor: pointer;
+      transition: opacity 200ms;
+      white-space: nowrap;
+      height: 40px;
+    }
+
+    .btn-buscar:hover { opacity: 0.9; }
+    .btn-buscar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ===== Card do gráfico ===== */
+    .chart-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 18px rgba(2,60,24,0.08);
+      flex: 1;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chart-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #083a20;
+    }
+
+    .chart-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 360px;
+    }
+
+    /* ===== Estado vazio / loading / erro ===== */
+    .estado {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 360px;
+      color: var(--muted);
+      gap: 10px;
+      font-size: 0.95rem;
+    }
+
+    .estado-icon {
+      font-size: 2.5rem;
+      opacity: 0.3;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(0,0,0,0.08);
+      border-top-color: var(--accent);
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Resumo rápido ===== */
+    .resumo {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .resumo-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px 20px;
+      box-shadow: 0 4px 14px rgba(2,60,24,0.07);
+      flex: 1;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .resumo-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .resumo-valor {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-1);
+    }
+
+    .resumo-card.hidden { display: none; }
+
+    /* ===== Footer ===== */
+    footer {
+      color: rgba(0,0,0,0.25);
+      text-align: left;
+      padding: 4px 24px 10px;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <img src="../frontEnd/assets/logo1.png" alt="Logo" />
+    </div>
+    <div>
+      <h1>WindLog</h1>
+      <p>Histórico de velocidade do vento por estação</p>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Controles -->
+    <div class="controls">
+      <div class="control-group">
+        <label>Estação</label>
+        <select id="sel-estacao">
+          <option value="">Carregando estações...</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Data inicial</label>
+        <input type="date" id="data-inicio" />
+      </div>
+      <div class="control-group">
+        <label>Data final</label>
+        <input type="date" id="data-fim" />
+      </div>
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
+    </div>
+
+    <!-- Cards de resumo (ficam escondidos até ter dados) -->
+    <div class="resumo" id="resumo" style="display:none">
+      <div class="resumo-card">
+        <span class="resumo-label">Velocidade máxima</span>
+        <span class="resumo-valor" id="res-max">—</span>
+      </div>
+      <div class="resumo-card">
+        <span class="resumo-label">Velocidade média</span>
+        <span class="resumo-valor" id="res-med">—</span>
+      </div>
+      <div class="resumo-card">
+        <span class="resumo-label">Velocidade mínima</span>
+        <span class="resumo-valor" id="res-min">—</span>
+      </div>
+      <div class="resumo-card">
+        <span class="resumo-label">Leituras no período</span>
+        <span class="resumo-valor" id="res-total">—</span>
+      </div>
+    </div>
+
+    <!-- Gráfico -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title" id="chart-title">Selecione uma estação e um período</span>
+        <span class="chart-subtitle" id="chart-subtitle"></span>
+      </div>
+
+      <div class="chart-wrap" id="chart-wrap">
+        <div class="estado" id="estado-vazio">
+          <span class="estado-icon">📈</span>
+          <span>Escolha uma estação, defina o período e clique em Buscar</span>
+        </div>
+        <canvas id="grafico" style="display:none"></canvas>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;font-size:12px;color:#666;">
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:28px;height:3px;background:#22c55e;border-radius:2px;display:inline-block;"></span>Normal &lt; 40 km/h
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:28px;height:3px;background:#eab308;border-radius:2px;display:inline-block;"></span>Perigo Potencial 40–60 km/h
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:28px;height:3px;background:#f97316;border-radius:2px;display:inline-block;"></span>Perigo 61–100 km/h
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:28px;height:3px;background:#ef4444;border-radius:2px;display:inline-block;"></span>Grande Perigo ≥ 100 km/h
+        </span>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>WindLog — LivingAgro+Vales / UNISC</footer>
+
+  <script>
+    // Endereço do proxy local — precisa estar rodando (python3 proxy.py)
+    const BASE = 'http://localhost:8080';
+    let chart = null;
+
+    // ===== Datas padrão: últimos 7 dias =====
+    (function initDatas() {
+      const hoje = new Date();
+      const semanaPassada = new Date();
+      semanaPassada.setDate(hoje.getDate() - 7);
+      document.getElementById('data-fim').value = hoje.toISOString().slice(0, 10);
+      document.getElementById('data-inicio').value = semanaPassada.toISOString().slice(0, 10);
+    })();
+
+    // ===== Carregar estações no dropdown =====
+    // Chamado ao abrir a página — busca a lista do proxy e popula o <select>
+    async function carregarEstacoes() {
+      try {
+        const res = await fetch(`${BASE}/estacoes`);
+        if (!res.ok) throw new Error('Erro ao buscar estações');
+        const estacoes = await res.json();
+
+        const sel = document.getElementById('sel-estacao');
+        sel.innerHTML = '<option value="">Selecione uma estação</option>';
+        estacoes
+          .filter(e => e.status)           // ignora estações inativas
+          .sort((a, b) => a.nome.localeCompare(b.nome))  // ordena A-Z
+          .forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.cod_estacao_meteorologica;
+            opt.textContent = e.nome;
+            sel.appendChild(opt);
+          });
+      } catch (err) {
+        document.getElementById('sel-estacao').innerHTML =
+          '<option value="">Erro ao carregar estações</option>';
+        console.error(err);
+      }
+    }
+
+    // ===== Buscar histórico =====
+    // Chamado pelo botão Buscar — valida os campos e chama o proxy
+    async function buscar() {
+      const codEstacao = document.getElementById('sel-estacao').value;
+      const dataInicio = document.getElementById('data-inicio').value;
+      const dataFim = document.getElementById('data-fim').value;
+      const nomeEstacao = document.getElementById('sel-estacao').selectedOptions[0]?.text;
+
+      // Validações antes de chamar a API
+      if (!codEstacao) return alert('Selecione uma estação.');
+      if (!dataInicio || !dataFim) return alert('Defina o período.');
+      if (dataInicio > dataFim) return alert('A data inicial deve ser anterior à data final.');
+      const dias = (new Date(dataFim) - new Date(dataInicio)) / (1000 * 60 * 60 * 24);
+      if (dias > 14) return alert('Período máximo permitido: 14 dias.');
+
+      mostrarLoading();
+
+      try {
+        const url = `${BASE}/historico?cod=${codEstacao}&inicio=${dataInicio}&fim=${dataFim}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Erro ${res.status}`);
+        const dados = await res.json();
+
+        if (!dados || dados.length === 0) {
+          mostrarEstado('Nenhuma leitura encontrada para o período selecionado.');
+          return;
+        }
+
+        renderizarGrafico(dados, nomeEstacao, dataInicio, dataFim);
+      } catch (err) {
+        mostrarEstado('Não foi possível buscar os dados. Verifique sua conexão.');
+        console.error(err);
+      } finally {
+        document.getElementById('btn-buscar').disabled = false;
+      }
+    }
+
+    // ===== Renderizar gráfico =====
+    function renderizarGrafico(dados, nomeEstacao, dataInicio, dataFim) {
+      // Extrai e converte os dados — tenta diferentes campos possíveis da API
+      const pontos = dados
+        .map(d => {
+          const data = d.dth_leitura || d.dataLeitura || d.data_leitura || d.datahora;
+          const velRaw = d.velocidade_vento ?? d.velocidadeVento ?? d.vento_velocidade ?? null;
+          // converte string "4.5" para número 4.5
+          const vel = typeof velRaw === 'string'
+            ? parseFloat(velRaw.replace(/[^\d.,]/g, '').replace(',', '.'))
+            : velRaw;
+          return { data, vel };
+        })
+        .filter(p => p.data && !isNaN(p.vel))
+        .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+      if (pontos.length === 0) {
+        mostrarEstado('Dados recebidos mas não foi possível interpretá-los.');
+        return;
+      }
+
+      // Formata os labels do eixo X (ex: "15/06 14:30")
+      const labels = pontos.map(p => {
+        const d = new Date(p.data);
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+          + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      });
+      const valores = pontos.map(p => p.vel);
+
+      // Atualiza os cards de resumo
+      const max = Math.max(...valores);
+      const min = Math.min(...valores);
+      const med = valores.reduce((a, b) => a + b, 0) / valores.length;
+      document.getElementById('res-max').textContent = max.toFixed(1) + ' km/h';
+      document.getElementById('res-med').textContent = med.toFixed(1) + ' km/h';
+      document.getElementById('res-min').textContent = min.toFixed(1) + ' km/h';
+      document.getElementById('res-total').textContent = valores.length;
+      document.getElementById('resumo').style.display = 'flex';
+
+      // Atualiza título do card e da aba do navegador
+      document.getElementById('chart-title').textContent = nomeEstacao;
+      document.getElementById('chart-subtitle').textContent =
+        `${fmtData(dataInicio)} → ${fmtData(dataFim)}`;
+      document.title = `WindLog — ${nomeEstacao}`;
+
+      // Exibe o canvas e destrói gráfico anterior se existir
+      document.getElementById('estado-vazio').style.display = 'none';
+      const canvas = document.getElementById('grafico');
+      canvas.style.display = 'block';
+      if (chart) chart.destroy();
+
+      // Retorna a cor do nível de alerta conforme classificação da Defesa Civil
+      const alertColor = v => {
+        if (v >= 100) return '#ef4444'; // Grande Perigo
+        if (v >= 61)  return '#f97316'; // Perigo
+        if (v >= 40)  return '#eab308'; // Perigo Potencial
+        return '#22c55e';               // Normal
+      };
+
+      // Plugin customizado: desenha a linha segmento por segmento com a cor do alerta
+      // (mais eficiente que criar um dataset separado por segmento)
+      const pluginLinhaColorida = {
+        id: 'linhaColorida',
+        afterDatasetsDraw(c) {
+          const {ctx, scales: {x, y}} = c;
+          ctx.save();
+          ctx.lineWidth = 2;
+          ctx.lineJoin = 'round';
+          for (let i = 0; i < valores.length - 1; i++) {
+            const x1 = x.getPixelForValue(i);
+            const y1 = y.getPixelForValue(valores[i]);
+            const x2 = x.getPixelForValue(i + 1);
+            const y2 = y.getPixelForValue(valores[i + 1]);
+            ctx.strokeStyle = alertColor((valores[i] + valores[i + 1]) / 2);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      };
+
+      chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Velocidade do vento (km/h)',
+            data: valores,
+            borderColor: 'transparent', // a linha real é desenhada pelo plugin acima
+            backgroundColor: 'rgba(34,197,94,0.07)', // preenchimento suave abaixo
+            borderWidth: 0,
+            pointRadius: pontos.length > 200 ? 0 : 3, // remove pontos se houver muitos
+            pointHoverRadius: 5,
+            fill: true,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.parsed.y.toFixed(1)} km/h`,
+                // cor do tooltip acompanha o nível de alerta
+                labelColor: ctx => ({
+                  borderColor: alertColor(ctx.parsed.y),
+                  backgroundColor: alertColor(ctx.parsed.y),
+                })
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                maxTicksLimit: 12,
+                font: { family: 'Inter', size: 11 },
+                color: '#888',
+                maxRotation: 30,
+              },
+              grid: { color: 'rgba(0,0,0,0.04)' }
+            },
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'km/h',
+                font: { family: 'Inter', size: 11 },
+                color: '#888',
+              },
+              ticks: { font: { family: 'Inter', size: 11 }, color: '#888' },
+              grid: { color: 'rgba(0,0,0,0.06)' }
+            }
+          }
+        },
+        plugins: [pluginLinhaColorida]
+      });
+    }
+
+    // ===== Helpers de UI =====
+
+    // Exibe o spinner de carregamento e desativa o botão
+    function mostrarLoading() {
+      document.getElementById('resumo').style.display = 'none';
+      document.getElementById('grafico').style.display = 'none';
+      const estado = document.getElementById('estado-vazio');
+      estado.style.display = 'flex';
+      estado.innerHTML = '<div class="spinner"></div><span>Buscando dados...</span>';
+      document.getElementById('btn-buscar').disabled = true;
+      document.getElementById('chart-title').textContent = 'Carregando...';
+      document.getElementById('chart-subtitle').textContent = '';
+    }
+
+    // Exibe uma mensagem de estado (erro ou aviso) no lugar do gráfico
+    function mostrarEstado(msg) {
+      document.getElementById('grafico').style.display = 'none';
+      const estado = document.getElementById('estado-vazio');
+      estado.style.display = 'flex';
+      estado.innerHTML = `<span class="estado-icon">⚠️</span><span>${msg}</span>`;
+      document.getElementById('btn-buscar').disabled = false;
+      document.getElementById('chart-title').textContent = 'Selecione uma estação e um período';
+      document.getElementById('chart-subtitle').textContent = '';
+    }
+
+    // Converte data ISO (2026-06-15) para formato BR (15/06/2026)
+    function fmtData(iso) {
+      const [a, m, d] = iso.split('-');
+      return `${d}/${m}/${a}`;
+    }
+
+    // ===== Init — executa ao carregar a página =====
+    carregarEstacoes();
+  </script>
+
+</body>
+</html>
